@@ -1,0 +1,47 @@
+# Usa la imagen oficial base de ROS 2 Jazzy mantenida por OSRF
+FROM osrf/ros:jazzy-ros-base
+
+# Etiqueta informativa del mantenedor (no afecta ejecución)
+LABEL maintainer="Tu Nombre <tu_email@ejemplo.com>"
+
+# Evita prompts interactivos durante apt-get
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Actualiza el sistema, instala utilitarios, Spotify y limpia caché para reducir el tamaño
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+        python3-colcon-common-extensions \  # Herramientas de compilación para ROS2
+        python3-rosdep \                    # Gestor de dependencias de ROS
+        python3-pip \                       # Gestor de paquetes Python
+        locales \                           # Configuración regional
+        wget curl git lsb-release \         # Utilidades de red y sistema
+        software-properties-common \        # Necesario para repositorios adicionales
+        apt-transport-https \
+        gnupg ca-certificates && \
+    # Añade la clave y el repositorio oficial de Spotify
+    curl -sS https://download.spotify.com/debian/pubkey.gpg | gpg --dearmor -o /usr/share/keyrings/spotify.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/spotify.gpg] http://repository.spotify.com stable non-free" \
+        > /etc/apt/sources.list.d/spotify.list && \
+    apt-get update && \
+    apt-get install -y spotify-client && \
+    rm -rf /var/lib/apt/lists/*             # Limpia la caché de apt para aligerar la imagen
+
+# Inicializa rosdep y configura la localización para evitar errores de codificación
+RUN rosdep update && \
+    locale-gen en_US en_US.UTF-8 && \
+    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+
+# Cambia el shell a bash y agrega el comando para cargar ROS automáticamente
+SHELL ["/bin/bash", "-c"]
+RUN echo "source /opt/ros/jazzy/setup.bash" >> /root/.bashrc
+
+# (Opcional) Copia y construye tu workspace si tienes código propio de ROS
+# COPY ./ros2_ws /ros2_ws              # Copia tu proyecto al contenedor
+# WORKDIR /ros2_ws                     # Define el directorio de trabajo
+# RUN /bin/bash -c "source /opt/ros/jazzy/setup.bash && \
+#    rosdep install --from-paths src --ignore-src -r -y && \
+#    colcon build"                     # Instala dependencias y compila tu proyecto
+
+# Comando por defecto: abre bash con ROS cargado para usarlo de inmediato
+CMD ["/bin/bash", "-c", "source /opt/ros/jazzy/setup.bash && bash"]
+
